@@ -23,7 +23,7 @@ import {
   ShieldOutlined,
 } from "@mui/icons-material";
 
-const API_URL = "http://localhost:3001";
+const API_URL = "https://cuboid-fitness-backend.onrender.com";
 
 const BOT_ANIMATIONS = `
   @keyframes cuboidBrandGlow {
