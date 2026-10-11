@@ -23,6 +23,7 @@ import {
   ShieldOutlined,
 } from "@mui/icons-material";
 import { getExpiryDate } from "./membership-dates.js";
+import { isConfiguredUpiId } from "./payment-config.js";
 
 const API_URL = (import.meta.env.VITE_API_URL || "https://kevenyrsvp.in").replace(/\/$/, "");
 
@@ -237,6 +238,7 @@ html, body, #root {
 
 const GYM_UPI_ID = import.meta.env.VITE_GYM_UPI_ID || "YOUR_GYM_UPI_ID@upi";
 const GYM_PAYEE_NAME = import.meta.env.VITE_GYM_PAYEE_NAME || "Cuboid Fitness";
+const HAS_CONFIGURED_UPI_ID = isConfiguredUpiId(GYM_UPI_ID);
 const getPaymentAmount = (plan) => ({ Monthly: 1700, Quarterly: 4500, "Half Year": 8000, Yearly: 13999 }[plan] || 0);
 const getUpiPaymentUrl = (plan) => `upi://pay?pa=${encodeURIComponent(GYM_UPI_ID)}&pn=${encodeURIComponent(GYM_PAYEE_NAME)}&am=${getPaymentAmount(plan)}&cu=INR`;
 const getQrUrl = (plan) => `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=${encodeURIComponent(getUpiPaymentUrl(plan))}`;
@@ -427,7 +429,9 @@ export default function CustomerRegister() {
         setStage("payment");
         addMessage(
           "bot",
-          `Your ${form.plan} membership fee is ₹${getPaymentAmount(form.plan).toLocaleString("en-IN")}. Please scan the QR code and complete the payment, then enter the UTR / Transaction ID.`
+          HAS_CONFIGURED_UPI_ID
+            ? `Your ${form.plan} membership fee is ₹${getPaymentAmount(form.plan).toLocaleString("en-IN")}. Please scan the QR code and complete the payment, then enter the UTR / Transaction ID.`
+            : "Online payment is temporarily unavailable. Please contact the gym for verified payment instructions."
         );
       };
 
@@ -523,11 +527,18 @@ export default function CustomerRegister() {
     setStage("payment");
     addMessage(
       "bot",
-      `Your ${form.plan} membership fee is ₹${getPaymentAmount(form.plan).toLocaleString("en-IN")}. Please scan the QR code below and complete the payment. Then enter the UTR / Transaction ID. You cannot continue until a transaction ID is submitted.`
+      HAS_CONFIGURED_UPI_ID
+        ? `Your ${form.plan} membership fee is ₹${getPaymentAmount(form.plan).toLocaleString("en-IN")}. Please scan the QR code below and complete the payment. Then enter the UTR / Transaction ID. You cannot continue until a transaction ID is submitted.`
+        : "Online payment is temporarily unavailable. Please contact the gym for verified payment instructions."
     );
   }
 
   function submitTransactionId() {
+    if (!HAS_CONFIGURED_UPI_ID) {
+      setError("Online payment is temporarily unavailable. Please contact the gym for verified payment instructions.");
+      return;
+    }
+
     const transactionId = String(input || "").trim().replace(/\s+/g, "");
     if (transactionId.length < 6 || transactionId.length > 50) {
       setError("Please enter a valid UTR / Transaction ID.");
@@ -1269,15 +1280,25 @@ export default function CustomerRegister() {
               <Box sx={{ p: 1.7, borderRadius: 2.8, bgcolor: "#f8fafc", border: "1px solid #e2e8f0", textAlign: "center" }}>
                 <Typography sx={{ fontSize: 10, fontWeight: 900, color: "#94a3b8", letterSpacing: 1.2 }}>SECURE MEMBERSHIP PAYMENT</Typography>
                 <Typography sx={{ mt: .6, fontWeight: 950, fontSize: 22 }}>₹{getPaymentAmount(form.plan).toLocaleString("en-IN")}</Typography>
-                <Typography sx={{ mt: .3, color: "#64748b", fontSize: 12 }}>Scan this QR with any UPI app</Typography>
-                <Box component="img" src={getQrUrl(form.plan)} alt="Gym payment QR" sx={{ width: 220, height: 220, mt: 1.2, borderRadius: 2, border: "1px solid #e2e8f0", p: 1, bgcolor: "#fff" }} />
-                <Typography sx={{ mt: 1, fontSize: 12, fontWeight: 800 }}>UPI: {GYM_UPI_ID}</Typography>
-                <Typography sx={{ mt: .5, color: "#64748b", fontSize: 11 }}>After payment, enter the UTR / Transaction ID below.</Typography>
+                {HAS_CONFIGURED_UPI_ID ? (
+                  <>
+                    <Typography sx={{ mt: .3, color: "#64748b", fontSize: 12 }}>Scan this QR with any UPI app</Typography>
+                    <Box component="img" src={getQrUrl(form.plan)} alt="Gym payment QR" sx={{ width: 220, height: 220, mt: 1.2, borderRadius: 2, border: "1px solid #e2e8f0", p: 1, bgcolor: "#fff" }} />
+                    <Typography sx={{ mt: 1, fontSize: 12, fontWeight: 800 }}>UPI: {GYM_UPI_ID}</Typography>
+                    <Typography sx={{ mt: .5, color: "#64748b", fontSize: 11 }}>After payment, enter the UTR / Transaction ID below.</Typography>
+                  </>
+                ) : (
+                  <Typography role="alert" sx={{ mt: 1, color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
+                    Online payment is temporarily unavailable. Please contact the gym for verified payment instructions. Do not submit a UTR until payment details are confirmed.
+                  </Typography>
+                )}
               </Box>
-              <Box component="form" onSubmit={(event) => { event.preventDefault(); submitTransactionId(); }} sx={{ display: "flex", alignItems: "center", gap: .8 }}>
-                <TextField fullWidth autoFocus variant="standard" value={input} onChange={(event) => { setInput(event.target.value); setError(""); }} placeholder="Enter UTR / Transaction ID" sx={{ px: .5, "& input": { py: 1.25, fontSize: 14 } }} />
-                <IconButton type="submit" sx={{ width: 44, height: 44, bgcolor: "#111827", color: "#fff", "&:hover": { bgcolor: "#1f2937" } }}><ArrowUpward sx={{ fontSize: 20 }} /></IconButton>
-              </Box>
+              {HAS_CONFIGURED_UPI_ID && (
+                <Box component="form" onSubmit={(event) => { event.preventDefault(); submitTransactionId(); }} sx={{ display: "flex", alignItems: "center", gap: .8 }}>
+                  <TextField fullWidth autoFocus variant="standard" value={input} onChange={(event) => { setInput(event.target.value); setError(""); }} placeholder="Enter UTR / Transaction ID" sx={{ px: .5, "& input": { py: 1.25, fontSize: 14 } }} />
+                  <IconButton type="submit" sx={{ width: 44, height: 44, bgcolor: "#111827", color: "#fff", "&:hover": { bgcolor: "#1f2937" } }}><ArrowUpward sx={{ fontSize: 20 }} /></IconButton>
+                </Box>
+              )}
             </Stack>
           )}
           {stage === "confirm" && (
