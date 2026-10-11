@@ -22,6 +22,7 @@ import {
   Replay,
   ShieldOutlined,
 } from "@mui/icons-material";
+import { getExpiryDate } from "./membership-dates.js";
 
 const API_URL = (import.meta.env.VITE_API_URL || "https://kevenyrsvp.in").replace(/\/$/, "");
 
@@ -280,21 +281,6 @@ function getToday() {
   return `${year}-${month}-${day}`;
 }
 
-function getExpiryDate(joiningDate, plan) {
-  if (!joiningDate) return "";
-
-  const date = new Date(`${joiningDate}T00:00:00`);
-
-  // Every membership expires exactly 2 calendar months after joining.
-  date.setMonth(date.getMonth() + 2);
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
 function formatDate(dateString) {
   if (!dateString) return "—";
   const parts = dateString.split("-");
@@ -541,15 +527,6 @@ export default function CustomerRegister() {
     );
   }
 
-  function handlePaymentChoice(completed) {
-    // Kept for compatibility with any existing UI state, but payment is now handled by QR + UTR.
-    updateForm("paymentCompleted", false);
-    if (!completed) {
-      setError("Please complete the membership payment before continuing.");
-      return;
-    }
-  }
-
   function submitTransactionId() {
     const transactionId = String(input || "").trim().replace(/\s+/g, "");
     if (transactionId.length < 6 || transactionId.length > 50) {
@@ -563,7 +540,7 @@ export default function CustomerRegister() {
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
-      addMessage("bot", "Payment details received. Your payment is now submitted for verification. Your Membership / Gym / Fingerprint ID will be assigned automatically when the admin approves your registration. Expired IDs are automatically reused for new members.");
+      addMessage("bot", "Payment details received. Your payment is now submitted for verification. Your Membership / Gym / Fingerprint ID will be assigned automatically when the admin approves your registration.");
       setStage("confirm");
     }, 250);
   }
@@ -652,7 +629,7 @@ export default function CustomerRegister() {
       };
 
       const response = await fetch(
-        `${API_URL}/api/public/register`,
+        `${API_URL}/api/customer/register`,
         {
           method: "POST",
           headers: {
